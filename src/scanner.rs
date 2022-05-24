@@ -1,4 +1,6 @@
-enum TokenType {
+#[derive(Debug)]
+pub enum TokenType {
+    /*
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
     COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR,
 
@@ -16,6 +18,7 @@ enum TokenType {
     PRINT, RETURN, SUPER, THIS, TRUE, VAR, WHILE,
 
     EOF
+    */
 }
 
 #[derive(Debug)]
@@ -45,8 +48,8 @@ impl Token {
 pub struct Scanner {
     source: String,
     tokens: Vec<Token>,
-    start: i32,
-    current: i32,
+    start: usize,
+    current: usize,
     line: i32,
 }
 
@@ -61,12 +64,12 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Vec<Token> {
+    pub fn scan_tokens(&mut self) -> &Vec<Token> {
         while self.current < self.source.len() {
             self.start = self.current;
             self.scan_token();
         }
-        self.tokens
+        &self.tokens
     }
 
     fn scan_token(&mut self) {

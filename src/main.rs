@@ -32,10 +32,10 @@ fn run_prompt() {
 }
 
 fn run(source: &str) {
-    let s = Scanner::new(source);
+    let mut s = Scanner::new(source);
     let tokens = s.scan_tokens();
     for token in tokens {
-        println!("{}", token);
+        println!("{:?}", token);
     }
 }
 
