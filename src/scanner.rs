@@ -1,51 +1,55 @@
+use std::iter::Peekable;
+use std::str::Chars;
+
 #[derive(Debug)]
 pub enum TokenType {
-    LEFT_PAREN,
-    RIGHT_PAREN,
-    LEFT_BRACE,
-    RIGHT_BRACE,
-    COMMA,
-    DOT,
-    MINUS,
-    PLUS,
-    SEMICOLON,
-    SLASH,
-    STAR,
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Slash,
+    Star,
 
     // One or two character tokens.
-    BANG,
-    BANG_EQUAL,
-    EQUAL,
-    EQUAL_EQUAL,
-    GREATER,
-    GREATER_EQUAL,
-    LESS,
-    LESS_EQUAL,
+    Bang,
+    BangEqual,
+    Equal,
+    EqualEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
 
     // Literals.
-    IDENTIFIER,
-    STRING,
-    NUMBER,
+    Identifier,
+    StringLiteral,
+    NumberLiteral,
 
     // Keywords.
-    AND,
-    CLASS,
-    ELSE,
-    FALSE,
-    FUN,
-    FOR,
-    IF,
-    NIL,
-    OR,
-    PRINT,
-    RETURN,
-    SUPER,
-    THIS,
-    TRUE,
-    VAR,
-    WHILE,
+    And,
+    Class,
+    Else,
+    False,
+    Fun,
+    For,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
 
-    EOF,
+    Whitespace,
+    Eof,
 }
 
 #[derive(Debug)]
@@ -72,18 +76,21 @@ impl Token {
  * let x = "5";
  */
 
-pub struct Scanner {
+pub struct Scanner<'a> {
     source: String,
+    iter: Peekable<CharsIndices<'a>>,
     tokens: Vec<Token>,
     start: usize,
     current: usize,
     line: i32,
 }
 
-impl Scanner {
+impl<'a> Scanner<'a> {
     pub fn new(source: &str) -> Scanner {
+        let source = source.to_owned();
         Scanner {
-            source: source.to_owned(),
+            source,
+            iter: source.char_indices().peekable(),
             tokens: Vec::new(),
             start: 0,
             current: 0,
@@ -92,85 +99,109 @@ impl Scanner {
     }
 
     pub fn scan_tokens(&mut self) -> &Vec<Token> {
-        while self.current < self.source.len() {
-            self.start = self.current;
-            self.scan_token();
+        while let Some(kind) = self.scan_token() {
+            let end = self.iter.offset();
+            self.tokens.push(Token {
+                kind,
+                lexeme: self.source[self.start..end].to_owned(),
+                line: self.line,
+            });
+            self.start = end;
         }
-        self.tokens.push(Token {
-            kind: TokenType::EOF,
-            lexeme: "".to_owned(),
-            line: self.line,
-        });
         &self.tokens
     }
 
-    fn scan_token(&mut self) {
-        // scans the first token and appends it to self.tokens
-        let c = self.advance();
-        match c {
-            '(' => self.add_token(TokenType::LEFT_PAREN),
-            ')' => self.add_token(TokenType::RIGHT_PAREN),
-            '{' => self.add_token(TokenType::LEFT_BRACE),
-            '}' => self.add_token(TokenType::RIGHT_BRACE),
-            ',' => self.add_token(TokenType::COMMA),
-            '.' => self.add_token(TokenType::DOT),
-            '-' => self.add_token(TokenType::MINUS),
-            '+' => self.add_token(TokenType::PLUS),
-            ';' => self.add_token(TokenType::SEMICOLON),
-            '*' => self.add_token(TokenType::STAR),
-            '!' => {
-                if self.next_eq('=') {
-                    self.add_token(TokenType::BANG_EQUAL)
-                } else {
-                    self.add_token(TokenType::BANG)
+    // Returns None for whitespace (no token)
+    fn scan_token(&mut self) -> Result<TokenType, &'static str> {
+        if let Some(_, c) = self.iter.next() {
+            match c {
+                '(' => Ok(TokenType::LeftParen),
+                ')' => Ok(TokenType::RightParen),
+                '{' => Ok(TokenType::LeftBrace),
+                '}' => Ok(TokenType::RightBrace),
+                ',' => Ok(TokenType::Comma),
+                '.' => Ok(TokenType::Dot),
+                '-' => Ok(TokenType::Minus),
+                '+' => Ok(TokenType::Plus),
+                ';' => Ok(TokenType::Semicolon),
+                '*' => Ok(TokenType::Star),
+                '!' => {
+                    if self.iter.next_if_eq('=').is_some() {
+                        Ok(TokenType::BangEqual)
+                    } else {
+                        Ok(TokenType::Bang)
+                    }
                 }
-            }
-            '=' => {
-                if self.next_eq('=') {
-                    self.add_token(TokenType::EQUAL_EQUAL)
-                } else {
-                    self.add_token(TokenType::EQUAL)
+                '=' => {
+                    if self.iter.next_if_eq('=').is_some() {
+                        Ok(TokenType::EqualEqual)
+                    } else {
+                        Ok(TokenType::Equal)
+                    }
                 }
-            }
-            '<' => {
-                if self.next_eq('=') {
-                    self.add_token(TokenType::LESS_EQUAL)
-                } else {
-                    self.add_token(TokenType::LESS)
+                '<' => {
+                    if self.iter.next_if_eq('=').is_some() {
+                        Ok(TokenType::LessEqual)
+                    } else {
+                        Ok(TokenType::Less)
+                    }
                 }
-            }
-            '>' => {
-                if self.next_eq('=') {
-                    self.add_token(TokenType::GREATER_EQUAL)
-                } else {
-                    self.add_token(TokenType::GREATER)
+                '>' => {
+                    if self.iter.next_if_eq('=').is_some() {
+                        Ok(TokenType::GreaterEqual)
+                    } else {
+                        Ok(TokenType::Greater)
+                    }
                 }
+                '/' => {
+                    if self.iter.next_if_eq('/').is_some() {
+                        while self.iter.next_if(|c| c != '\n').is_some() {}
+                        Ok(TokenType::Whitespace)
+                    } else {
+                        Ok(TokenType::Slash)
+                    }
+                }
+                '\n' => {
+                    self.line += 1;
+                    Ok(TokenType::Whitespace)
+                }
+                '"' => {
+                    while let Some(c) = self.iter.next() {
+                        if c == '"' {
+                            return Ok(TokenType::StringLiteral);
+                        } else if c == '\n' {
+                            self.line += 1;
+                        }
+                    }
+                    // EOF in string
+                    Err("Unterminated string")
+                }
+                c if c.is_whitespace() => Ok(TokenType::Whitespace),
+                c if is_digit(c) => {
+                    while self.iter.next_if(|c| is_digit(c)).is_some() {}
+                    if self.iter.peek() == Some('.') && is_digit(self.double_peek()) {
+                        self.iter.next();
+                        while self.iter.next_if(|c| is_digit(c)).is_some() {}
+                    }
+                    Ok(TokenType::NumberLiteral)
+                }
+                c if is_alpha(c) => {
+                    while self.iter.next_if(|c| is_alphanumeric(c)).is_some() {}
+                    Ok(TokenType::StringLiteral)
+                }
+                c => Err(format!(
+                    "Found unexpected character {} while scanning line {}",
+                    c, self.line
+                )),
             }
-            _ => todo!(),
+        } else {
+            Ok(TokenType::Eof)
         }
     }
 
-    fn next_eq(&mut self, c1: char) -> bool {
-        match self.source.chars().nth(self.current) {
-            Some(c2) => {
-                self.current += 1;
-                c1 == c2
-            },
-            None => false,
-        }
+    fn double_peek(&self) -> char {
+        ' '
     }
 
-    fn advance(&mut self) -> char {
-        let ret = self.source.chars().nth(self.current).unwrap();
-        self.current += 1;
-        ret
-    }
-
-    fn add_token(&mut self, kind: TokenType) {
-        self.tokens.push(Token {
-            kind,
-            lexeme: self.source[self.start..self.current].to_owned(),
-            line: self.line,
-        });
-    }
+    fn is_alpha(c: char) -> bool {}
 }
