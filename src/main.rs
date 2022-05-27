@@ -1,8 +1,8 @@
 mod scanner;
 
-use std::{env, fs, io};
-use std::io::Write;
 use scanner::Scanner;
+use std::io::Write;
+use std::{env, fs, io};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -38,5 +38,3 @@ fn run(source: &str) {
         println!("{:?}", token);
     }
 }
-
-
