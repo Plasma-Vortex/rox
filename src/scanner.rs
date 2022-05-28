@@ -1,5 +1,6 @@
 use std::iter::Peekable;
-use std::str::Chars;
+use std::str::CharIndices;
+use unicode_xid::UnicodeXID;
 
 #[derive(Debug)]
 pub enum TokenType {
@@ -78,7 +79,7 @@ impl Token {
 
 pub struct Scanner<'a> {
     source: String,
-    iter: Peekable<CharsIndices<'a>>,
+    iter: Peekable<CharIndices<'a>>,
     tokens: Vec<Token>,
     start: usize,
     current: usize,
@@ -88,6 +89,7 @@ pub struct Scanner<'a> {
 impl<'a> Scanner<'a> {
     pub fn new(source: &str) -> Scanner {
         let source = source.to_owned();
+        //let iter: () = source.char_indices().peekable();
         Scanner {
             source,
             iter: source.char_indices().peekable(),
@@ -98,110 +100,123 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> &Vec<Token> {
-        while let Some(kind) = self.scan_token() {
-            let end = self.iter.offset();
-            self.tokens.push(Token {
-                kind,
-                lexeme: self.source[self.start..end].to_owned(),
-                line: self.line,
-            });
-            self.start = end;
+    pub fn scan_tokens(&mut self) -> Result<&Vec<Token>, &'static str> {
+        loop {
+            let (start, kind) = self.scan_token()?;
+            if let Some(&(end, _)) = self.iter.peek() {
+                self.tokens.push(Token {
+                    kind,
+                    lexeme: self.source[start..end].to_owned(),
+                    line: self.line,
+                });
+            } else {
+                // TODO: EOF Token
+                break;
+            }
         }
-        &self.tokens
+        Ok(&self.tokens)
     }
 
     // Returns None for whitespace (no token)
-    fn scan_token(&mut self) -> Result<TokenType, &'static str> {
-        if let Some(_, c) = self.iter.next() {
-            match c {
-                '(' => Ok(TokenType::LeftParen),
-                ')' => Ok(TokenType::RightParen),
-                '{' => Ok(TokenType::LeftBrace),
-                '}' => Ok(TokenType::RightBrace),
-                ',' => Ok(TokenType::Comma),
-                '.' => Ok(TokenType::Dot),
-                '-' => Ok(TokenType::Minus),
-                '+' => Ok(TokenType::Plus),
-                ';' => Ok(TokenType::Semicolon),
-                '*' => Ok(TokenType::Star),
+    fn scan_token(&mut self) -> Result<(usize, TokenType), &'static str> {
+        if let Some(&(start, c)) = self.iter.next() {
+            Ok((start, match c {
+                '(' => TokenType::LeftParen,
+                ')' => TokenType::RightParen,
+                '{' => TokenType::LeftBrace,
+                '}' => TokenType::RightBrace,
+                ',' => TokenType::Comma,
+                '.' => TokenType::Dot,
+                '-' => TokenType::Minus,
+                '+' => TokenType::Plus,
+                ';' => TokenType::Semicolon,
+                '*' => TokenType::Star,
                 '!' => {
-                    if self.iter.next_if_eq('=').is_some() {
-                        Ok(TokenType::BangEqual)
+                    if self.iter.next_if_eq(&(start+1, '=')).is_some() {
+                        TokenType::BangEqual
                     } else {
-                        Ok(TokenType::Bang)
+                        TokenType::Bang
                     }
                 }
                 '=' => {
-                    if self.iter.next_if_eq('=').is_some() {
-                        Ok(TokenType::EqualEqual)
+                    if self.iter.next_if_eq(&(start+1, '=')).is_some() {
+                        TokenType::EqualEqual
                     } else {
-                        Ok(TokenType::Equal)
+                        TokenType::Equal
                     }
                 }
                 '<' => {
-                    if self.iter.next_if_eq('=').is_some() {
-                        Ok(TokenType::LessEqual)
+                    if self.iter.next_if_eq(&(start+1, '=')).is_some() {
+                        TokenType::LessEqual
                     } else {
-                        Ok(TokenType::Less)
+                        TokenType::Less
                     }
                 }
                 '>' => {
-                    if self.iter.next_if_eq('=').is_some() {
-                        Ok(TokenType::GreaterEqual)
+                    if self.iter.next_if_eq(&(start+1, '=')).is_some() {
+                        TokenType::GreaterEqual
                     } else {
-                        Ok(TokenType::Greater)
+                        TokenType::Greater
                     }
                 }
                 '/' => {
-                    if self.iter.next_if_eq('/').is_some() {
-                        while self.iter.next_if(|c| c != '\n').is_some() {}
-                        Ok(TokenType::Whitespace)
+                    if self.iter.next_if_eq(&(start+1, '/')).is_some() {
+                        while self.iter.next_if(|&(_, c)| c != '\n').is_some() {}
+                        TokenType::Whitespace
                     } else {
-                        Ok(TokenType::Slash)
+                        TokenType::Slash
                     }
                 }
                 '\n' => {
                     self.line += 1;
-                    Ok(TokenType::Whitespace)
+                    TokenType::Whitespace
                 }
-                '"' => {
-                    while let Some(c) = self.iter.next() {
-                        if c == '"' {
-                            return Ok(TokenType::StringLiteral);
-                        } else if c == '\n' {
-                            self.line += 1;
-                        }
-                    }
-                    // EOF in string
-                    Err("Unterminated string")
-                }
-                c if c.is_whitespace() => Ok(TokenType::Whitespace),
-                c if is_digit(c) => {
-                    while self.iter.next_if(|c| is_digit(c)).is_some() {}
-                    if self.iter.peek() == Some('.') && is_digit(self.double_peek()) {
+                //'"' => self.string()?
+                c if c.is_whitespace() => TokenType::Whitespace,
+                c if c.is_ascii_digit() => {
+                    while self.iter.next_if(|c| c.is_ascii_digit()).is_some() {}
+                    if self.decimal_point() {
                         self.iter.next();
-                        while self.iter.next_if(|c| is_digit(c)).is_some() {}
+                        while self.iter.next_if(|c| c.is_ascii_digit()).is_some() {}
                     }
-                    Ok(TokenType::NumberLiteral)
+                    TokenType::NumberLiteral
                 }
-                c if is_alpha(c) => {
-                    while self.iter.next_if(|c| is_alphanumeric(c)).is_some() {}
-                    Ok(TokenType::StringLiteral)
+                c if UnicodeXID::is_xid_start(c) => {
+                    while self
+                        .iter
+                        .next_if(|c| UnicodeXID::is_xid_continue(c))
+                        .is_some()
+                    {}
+                    TokenType::StringLiteral
                 }
-                c => Err(format!(
+                c => Err(&format!(
                     "Found unexpected character {} while scanning line {}",
                     c, self.line
                 )),
-            }
+            }))
         } else {
-            Ok(TokenType::Eof)
+            Ok((self.source.len(), TokenType::Eof))
         }
     }
 
-    fn double_peek(&self) -> char {
-        ' '
+    fn decimal_point(&self) -> bool {
+        let mut iter = self.iter.clone();
+        iter.next() == Some('.') && iter.next().is_ascii_digit()
     }
 
-    fn is_alpha(c: char) -> bool {}
+    fn next_while(&mut self, p: impl FnOnce(char) -> bool) {
+        while self.iter.next_if(|&(_, c)| p(c)).is_some() {}
+    }
+
+    fn string(&mut self) -> Result<TokenType, &'static str> {
+        while let Some((_, c)) = self.iter.next() {
+            if c == '"' {
+                return Ok(TokenType::StringLiteral);
+            } else if c == '\n' {
+                self.line += 1;
+            }
+        }
+        // EOF in string
+        Err("Unterminated string")
+    }
 }
