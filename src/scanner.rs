@@ -1,8 +1,8 @@
 use std::iter::Peekable;
-use std::str::CharIndices;
+use std::str::Chars;
 use unicode_xid::UnicodeXID;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenType {
     LeftParen,
     RightParen,
@@ -78,8 +78,8 @@ impl Token {
  */
 
 pub struct Scanner<'a> {
-    source: String,
-    iter: Peekable<CharIndices<'a>>,
+    source: &'a str,
+    iter: Peekable<Chars<'a>>,
     tokens: Vec<Token>,
     start: usize,
     current: usize,
@@ -88,11 +88,10 @@ pub struct Scanner<'a> {
 
 impl<'a> Scanner<'a> {
     pub fn new(source: &str) -> Scanner {
-        let source = source.to_owned();
-        //let iter: () = source.char_indices().peekable();
+        // let source = source.to_owned();
         Scanner {
             source,
-            iter: source.char_indices().peekable(),
+            iter: source.chars().peekable(),
             tokens: Vec::new(),
             start: 0,
             current: 0,
@@ -102,6 +101,13 @@ impl<'a> Scanner<'a> {
 
     pub fn scan_tokens(&mut self) -> Result<&Vec<Token>, &'static str> {
         loop {
+            let token = self.scan_token()?;
+            let eof = token.kind == TokenType::Eof;
+            self.tokens.push(token);
+            if eof {
+                break;
+            }
+            /*
             let (start, kind) = self.scan_token()?;
             if let Some(&(end, _)) = self.iter.peek() {
                 self.tokens.push(Token {
@@ -113,14 +119,17 @@ impl<'a> Scanner<'a> {
                 // TODO: EOF Token
                 break;
             }
+            */
         }
         Ok(&self.tokens)
     }
 
     // Returns None for whitespace (no token)
-    fn scan_token(&mut self) -> Result<(usize, TokenType), &'static str> {
-        if let Some(&(start, c)) = self.iter.next() {
-            Ok((start, match c {
+    fn scan_token(&mut self) -> Result<Token, &'static str> {
+        let mut token_len = 0;
+        let kind = if let Some(c) = self.iter.next() {
+            token_len += c.len_utf8();
+            match c {
                 '(' => TokenType::LeftParen,
                 ')' => TokenType::RightParen,
                 '{' => TokenType::LeftBrace,
@@ -132,36 +141,43 @@ impl<'a> Scanner<'a> {
                 ';' => TokenType::Semicolon,
                 '*' => TokenType::Star,
                 '!' => {
-                    if self.iter.next_if_eq(&(start+1, '=')).is_some() {
+                    if self.iter.next_if_eq(&'=').is_some() {
+                        token_len += 1;
                         TokenType::BangEqual
                     } else {
                         TokenType::Bang
                     }
                 }
                 '=' => {
-                    if self.iter.next_if_eq(&(start+1, '=')).is_some() {
+                    if self.iter.next_if_eq(&'=').is_some() {
+                        token_len += 1;
                         TokenType::EqualEqual
                     } else {
                         TokenType::Equal
                     }
                 }
                 '<' => {
-                    if self.iter.next_if_eq(&(start+1, '=')).is_some() {
+                    if self.iter.next_if_eq(&'=').is_some() {
+                        token_len += 1;
                         TokenType::LessEqual
                     } else {
                         TokenType::Less
                     }
                 }
                 '>' => {
-                    if self.iter.next_if_eq(&(start+1, '=')).is_some() {
+                    if self.iter.next_if_eq(&'=').is_some() {
+                        token_len += 1;
                         TokenType::GreaterEqual
                     } else {
                         TokenType::Greater
                     }
                 }
                 '/' => {
-                    if self.iter.next_if_eq(&(start+1, '/')).is_some() {
-                        while self.iter.next_if(|&(_, c)| c != '\n').is_some() {}
+                    if self.iter.next_if_eq(&'/').is_some() {
+                        token_len += 1;
+                        while let Some(c) = self.iter.next_if(|&c| c != '\n') {
+                            token_len += c.len_utf8();
+                        }
                         TokenType::Whitespace
                     } else {
                         TokenType::Slash
@@ -174,38 +190,52 @@ impl<'a> Scanner<'a> {
                 //'"' => self.string()?
                 c if c.is_whitespace() => TokenType::Whitespace,
                 c if c.is_ascii_digit() => {
-                    while self.iter.next_if(|c| c.is_ascii_digit()).is_some() {}
+                    while let Some(c) = self.iter.next_if(|&c| c.is_ascii_digit()) {
+                        token_len += c.len_utf8();
+                    }
                     if self.decimal_point() {
                         self.iter.next();
-                        while self.iter.next_if(|c| c.is_ascii_digit()).is_some() {}
+                        token_len += 1; // for the decimal point
+                        while let Some(c) = self.iter.next_if(|&c| c.is_ascii_digit()) {
+                            token_len += c.len_utf8();
+                        }
                     }
                     TokenType::NumberLiteral
                 }
                 c if UnicodeXID::is_xid_start(c) => {
-                    while self
-                        .iter
-                        .next_if(|c| UnicodeXID::is_xid_continue(c))
-                        .is_some()
-                    {}
+                    while let Some(c) = self.iter.next_if(|&c| UnicodeXID::is_xid_continue(c)) {
+                        token_len += c.len_utf8();
+                    }
                     TokenType::StringLiteral
                 }
-                c => Err(&format!(
-                    "Found unexpected character {} while scanning line {}",
-                    c, self.line
-                )),
-            }))
+                _ => {
+                    return Err("Found unexpected character"); /*&format!(
+                        "Found unexpected character {} while scanning line {}",
+                        c, self.line
+                    )); */
+                }
+            }
         } else {
-            Ok((self.source.len(), TokenType::Eof))
-        }
+            TokenType::Eof
+        };
+        let end = self.start + token_len;
+        let token = Token {
+            kind,
+            lexeme: self.source[self.start..end].to_owned(),
+            line: self.line,
+        };
+        self.start = end;
+        Ok(token)
     }
 
     fn decimal_point(&self) -> bool {
         let mut iter = self.iter.clone();
-        iter.next() == Some('.') && iter.next().is_ascii_digit()
+        iter.next() == Some('.') && iter.next().filter(|&c| c.is_ascii_digit()).is_some()
     }
 
+    /*
     fn next_while(&mut self, p: impl FnOnce(char) -> bool) {
-        while self.iter.next_if(|&(_, c)| p(c)).is_some() {}
+        while self.iter.next_if(|c| p(c)).is_some() {}
     }
 
     fn string(&mut self) -> Result<TokenType, &'static str> {
@@ -219,4 +249,5 @@ impl<'a> Scanner<'a> {
         // EOF in string
         Err("Unterminated string")
     }
+    */
 }
