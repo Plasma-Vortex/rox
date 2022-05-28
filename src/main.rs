@@ -33,8 +33,9 @@ fn run_prompt() {
 
 fn run(source: &str) {
     let mut s = Scanner::new(source);
-    let tokens = s.scan_tokens();
-    for token in tokens {
-        println!("{:?}", token);
+    if let Ok(tokens) = s.scan_tokens() {
+        for token in tokens {
+            println!("{:?},", token);
+        }
     }
 }

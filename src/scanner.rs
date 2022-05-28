@@ -53,31 +53,12 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Token {
     kind: TokenType,
     lexeme: String,
     line: i32,
 }
-
-/*
-impl Token {
-    pub fn new(kind: TokenType, lexeme: &str, line: i32) -> Token {
-        Token {
-            kind,
-            lexeme: lexeme.to_owned(),
-            line,
-        }
-    }
-}
-*/
-
-/*
- * source:
- * let x = 5;
- *
- * let x = "5";
- */
 
 pub struct Scanner<'a> {
     source: &'a str,
@@ -90,7 +71,6 @@ pub struct Scanner<'a> {
 
 impl<'a> Scanner<'a> {
     pub fn new(source: &str) -> Scanner {
-        // let source = source.to_owned();
         Scanner {
             source,
             iter: source.chars().peekable(),
@@ -182,7 +162,27 @@ impl<'a> Scanner<'a> {
                 }
                 c if UnicodeXID::is_xid_start(c) => {
                     self.next_while(|&c| UnicodeXID::is_xid_continue(c));
-                    TokenType::StringLiteral
+                    // TODO: test indexing
+                    let ident = &self.source[self.start..self.current];
+                    match ident {
+                        "and"    => TokenType::And,
+                        "class"  => TokenType::Class,
+                        "else"   => TokenType::Else,
+                        "false"  => TokenType::False,
+                        "for"    => TokenType::For,
+                        "fun"    => TokenType::Fun,
+                        "if"     => TokenType::If,
+                        "nil"    => TokenType::Nil,
+                        "or"     => TokenType::Or,
+                        "print"  => TokenType::Print,
+                        "return" => TokenType::Return,
+                        "super"  => TokenType::Super,
+                        "this"   => TokenType::This,
+                        "true"   => TokenType::True,
+                        "var"    => TokenType::Var,
+                        "while"  => TokenType::While,
+                        _        => TokenType::Identifier,
+                    }
                 }
                 _ => {
                     // TODO: more details of c and line
@@ -232,12 +232,46 @@ impl<'a> Scanner<'a> {
         while let Some(c) = self.iter.next() {
             self.current += c.len_utf8();
             if c == '"' {
-                return Ok(TokenType::StringLiteral);
+                return Ok(TokenType::StringLiteral)
             } else if c == '\n' {
                 self.line += 1;
             }
         }
         // EOF in string
         Err("Unterminated string")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test1() {
+        let source = fs::read_to_string("test1.lox").expect("Failed to read file");
+        let mut s = Scanner::new(&source);
+        assert_eq!(s.scan_tokens(), Ok(&vec![
+            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 1 },
+            Token { kind: TokenType::Identifier, lexeme: "i".to_string(), line: 1 },
+            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 1 },
+            Token { kind: TokenType::NumberLiteral, lexeme: "1".to_string(), line: 1 },
+            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 1 },
+            Token { kind: TokenType::Eof, lexeme: "".to_string(), line: 2 },
+        ]));
+    }
+
+    #[test]
+    fn test2() {
+        let source = fs::read_to_string("test2.lox").expect("Failed to read file");
+        let mut s = Scanner::new(&source);
+        assert_eq!(s.scan_tokens(), Ok(&vec![
+            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 1 },
+            Token { kind: TokenType::Identifier, lexeme: "s".to_string(), line: 1 },
+            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 1 },
+            Token { kind: TokenType::StringLiteral, lexeme: "\"Hello, World!\"".to_string(), line: 1 },
+            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 1 },
+            Token { kind: TokenType::Eof, lexeme: "".to_string(), line: 2 },
+        ]));
     }
 }
