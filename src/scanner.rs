@@ -274,4 +274,40 @@ mod tests {
             Token { kind: TokenType::Eof, lexeme: "".to_string(), line: 2 },
         ]));
     }
+
+    #[test]
+    fn test3() {
+        let source = fs::read_to_string("test3.lox").expect("Failed to read file");
+        let mut s = Scanner::new(&source);
+        assert_eq!(s.scan_tokens(), Ok(&vec![
+            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 1 },
+            Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 1 },
+            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 1 },
+            Token { kind: TokenType::NumberLiteral, lexeme: "1".to_string(), line: 1 },
+            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 1 },
+            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 2 },
+            Token { kind: TokenType::Identifier, lexeme: "b".to_string(), line: 2 },
+            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 2 },
+            Token { kind: TokenType::NumberLiteral, lexeme: "2".to_string(), line: 2 },
+            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 2 },
+            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 3 },
+            Token { kind: TokenType::Identifier, lexeme: "c".to_string(), line: 3 },
+            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 3 },
+            Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 3 },
+            Token { kind: TokenType::Plus, lexeme: "+".to_string(), line: 3 },
+            Token { kind: TokenType::Identifier, lexeme: "b".to_string(), line: 3 },
+            Token { kind: TokenType::Star, lexeme: "*".to_string(), line: 3 },
+            Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 3 },
+            Token { kind: TokenType::Minus, lexeme: "-".to_string(), line: 3 },
+            Token { kind: TokenType::Identifier, lexeme: "b".to_string(), line: 3 },
+            Token { kind: TokenType::Slash, lexeme: "/".to_string(), line: 3 },
+            Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 3 },
+            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 3 },
+            Token { kind: TokenType::Print, lexeme: "print".to_string(), line: 4 },
+            Token { kind: TokenType::Identifier, lexeme: "c".to_string(), line: 4 },
+            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 4 },
+            Token { kind: TokenType::Eof, lexeme: "".to_string(), line: 5 },
+        ]));
+    }
+
 }

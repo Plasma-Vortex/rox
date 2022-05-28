@@ -20,7 +20,7 @@ fn main() {
 fn run_prompt() {
     loop {
         print!("> ");
-        io::stdout().flush();
+        io::stdout().flush().expect("Failed to flush output");
         let mut line = String::new();
         io::stdin().read_line(&mut line).unwrap();
         line.pop();
