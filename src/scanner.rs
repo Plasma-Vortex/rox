@@ -60,6 +60,7 @@ pub struct Token {
     line: i32,
 }
 
+/*
 impl Token {
     pub fn new(kind: TokenType, lexeme: &str, line: i32) -> Token {
         Token {
@@ -69,6 +70,7 @@ impl Token {
         }
     }
 }
+*/
 
 /*
  * source:
@@ -103,32 +105,20 @@ impl<'a> Scanner<'a> {
         loop {
             let token = self.scan_token()?;
             let eof = token.kind == TokenType::Eof;
-            self.tokens.push(token);
-            if eof {
-                break;
+            if token.kind != TokenType::Whitespace {
+                self.tokens.push(token);
+                if eof {
+                    break;
+                }
             }
-            /*
-            let (start, kind) = self.scan_token()?;
-            if let Some(&(end, _)) = self.iter.peek() {
-                self.tokens.push(Token {
-                    kind,
-                    lexeme: self.source[start..end].to_owned(),
-                    line: self.line,
-                });
-            } else {
-                // TODO: EOF Token
-                break;
-            }
-            */
         }
         Ok(&self.tokens)
     }
 
     // Returns None for whitespace (no token)
     fn scan_token(&mut self) -> Result<Token, &'static str> {
-        let mut token_len = 0;
-        let kind = if let Some(c) = self.iter.next() {
-            token_len += c.len_utf8();
+        self.start = self.current;
+        let kind = if let Some(c) = self.next() {
             match c {
                 '(' => TokenType::LeftParen,
                 ')' => TokenType::RightParen,
@@ -141,43 +131,36 @@ impl<'a> Scanner<'a> {
                 ';' => TokenType::Semicolon,
                 '*' => TokenType::Star,
                 '!' => {
-                    if self.iter.next_if_eq(&'=').is_some() {
-                        token_len += 1;
+                    if self.next_if_eq('=') {
                         TokenType::BangEqual
                     } else {
                         TokenType::Bang
                     }
                 }
                 '=' => {
-                    if self.iter.next_if_eq(&'=').is_some() {
-                        token_len += 1;
+                    if self.next_if_eq('=') {
                         TokenType::EqualEqual
                     } else {
                         TokenType::Equal
                     }
                 }
                 '<' => {
-                    if self.iter.next_if_eq(&'=').is_some() {
-                        token_len += 1;
+                    if self.next_if_eq('=') {
                         TokenType::LessEqual
                     } else {
                         TokenType::Less
                     }
                 }
                 '>' => {
-                    if self.iter.next_if_eq(&'=').is_some() {
-                        token_len += 1;
+                    if self.next_if_eq('=') {
                         TokenType::GreaterEqual
                     } else {
                         TokenType::Greater
                     }
                 }
                 '/' => {
-                    if self.iter.next_if_eq(&'/').is_some() {
-                        token_len += 1;
-                        while let Some(c) = self.iter.next_if(|&c| c != '\n') {
-                            token_len += c.len_utf8();
-                        }
+                    if self.next_if_eq('/') {
+                        self.next_while(|&c| c != '\n');
                         TokenType::Whitespace
                     } else {
                         TokenType::Slash
@@ -187,44 +170,34 @@ impl<'a> Scanner<'a> {
                     self.line += 1;
                     TokenType::Whitespace
                 }
-                //'"' => self.string()?
+                '"' => self.string()?,
                 c if c.is_whitespace() => TokenType::Whitespace,
                 c if c.is_ascii_digit() => {
-                    while let Some(c) = self.iter.next_if(|&c| c.is_ascii_digit()) {
-                        token_len += c.len_utf8();
-                    }
+                    self.next_while(|&c| c.is_ascii_digit());
                     if self.decimal_point() {
-                        self.iter.next();
-                        token_len += 1; // for the decimal point
-                        while let Some(c) = self.iter.next_if(|&c| c.is_ascii_digit()) {
-                            token_len += c.len_utf8();
-                        }
+                        self.next(); // read the decimal point
+                        self.next_while(|&c| c.is_ascii_digit());
                     }
                     TokenType::NumberLiteral
                 }
                 c if UnicodeXID::is_xid_start(c) => {
-                    while let Some(c) = self.iter.next_if(|&c| UnicodeXID::is_xid_continue(c)) {
-                        token_len += c.len_utf8();
-                    }
+                    self.next_while(|&c| UnicodeXID::is_xid_continue(c));
                     TokenType::StringLiteral
                 }
                 _ => {
-                    return Err("Found unexpected character"); /*&format!(
-                        "Found unexpected character {} while scanning line {}",
-                        c, self.line
-                    )); */
+                    // TODO: more details of c and line
+                    return Err("Found unexpected character");
                 }
             }
         } else {
             TokenType::Eof
         };
-        let end = self.start + token_len;
         let token = Token {
             kind,
-            lexeme: self.source[self.start..end].to_owned(),
+            lexeme: self.source[self.start..self.current].to_owned(),
             line: self.line,
         };
-        self.start = end;
+        self.start = self.current;
         Ok(token)
     }
 
@@ -233,13 +206,31 @@ impl<'a> Scanner<'a> {
         iter.next() == Some('.') && iter.next().filter(|&c| c.is_ascii_digit()).is_some()
     }
 
-    /*
-    fn next_while(&mut self, p: impl FnOnce(char) -> bool) {
-        while self.iter.next_if(|c| p(c)).is_some() {}
+    fn next(&mut self) -> Option<char> {
+        let ret = self.iter.next();
+        if let Some(c) = ret {
+            self.current += c.len_utf8();
+        }
+        ret
+    }
+
+    fn next_if_eq(&mut self, expected: char) -> bool {
+        if let Some(c) = self.iter.next_if_eq(&expected) {
+            self.current += c.len_utf8();
+            return true;
+        }
+        false
+    }
+
+    fn next_while(&mut self, p: impl FnOnce(&char) -> bool + Copy) {
+        while let Some(c) = self.iter.next_if(p) {
+            self.current += c.len_utf8();
+        }
     }
 
     fn string(&mut self) -> Result<TokenType, &'static str> {
-        while let Some((_, c)) = self.iter.next() {
+        while let Some(c) = self.iter.next() {
+            self.current += c.len_utf8();
             if c == '"' {
                 return Ok(TokenType::StringLiteral);
             } else if c == '\n' {
@@ -249,5 +240,4 @@ impl<'a> Scanner<'a> {
         // EOF in string
         Err("Unterminated string")
     }
-    */
 }
