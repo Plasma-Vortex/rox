@@ -2,7 +2,7 @@ use std::iter::Peekable;
 use std::str::Chars;
 use unicode_xid::UnicodeXID;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TokenType {
     LeftParen,
     RightParen,
@@ -55,7 +55,7 @@ pub enum TokenType {
 
 #[derive(Debug, PartialEq)]
 pub struct Token {
-    kind: TokenType,
+    pub kind: TokenType,
     lexeme: String,
     line: i32,
 }

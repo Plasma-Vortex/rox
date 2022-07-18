@@ -1,8 +1,10 @@
 mod scanner;
+mod parser;
 
 use scanner::Scanner;
 use std::io::Write;
 use std::{env, fs, io};
+use parser::Parser;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -34,8 +36,11 @@ fn run_prompt() {
 fn run(source: &str) {
     let mut s = Scanner::new(source);
     if let Ok(tokens) = s.scan_tokens() {
+        println!("Done scanning, number of tokens = {}", tokens.len());
+        /*
         for token in tokens {
             println!("{:?},", token);
         }
+        */
     }
 }
