@@ -10,15 +10,15 @@ pub enum TokenType {
     RightBrace,
     Comma,
     Dot,
-    Minus,
-    Plus,
     Semicolon,
-    Slash,
-    Star,
+    Plus,
+    Minus,
+    Times,
+    Divide,
 
     // One or two character tokens.
-    Bang,
-    BangEqual,
+    Not,
+    NotEqual,
     Equal,
     EqualEqual,
     Greater,
@@ -28,8 +28,8 @@ pub enum TokenType {
 
     // Literals.
     Identifier,
-    StringLiteral,
-    NumberLiteral,
+    StrLiteral,
+    NumLiteral,
 
     // Keywords.
     And,
@@ -56,7 +56,7 @@ pub enum TokenType {
 #[derive(Debug, PartialEq)]
 pub struct Token {
     pub kind: TokenType,
-    lexeme: String,
+    pub lexeme: String,
     line: i32,
 }
 
@@ -109,12 +109,12 @@ impl<'a> Scanner<'a> {
                 '-' => TokenType::Minus,
                 '+' => TokenType::Plus,
                 ';' => TokenType::Semicolon,
-                '*' => TokenType::Star,
+                '*' => TokenType::Times,
                 '!' => {
                     if self.next_if_eq('=') {
-                        TokenType::BangEqual
+                        TokenType::NotEqual
                     } else {
-                        TokenType::Bang
+                        TokenType::Not
                     }
                 }
                 '=' => {
@@ -143,7 +143,7 @@ impl<'a> Scanner<'a> {
                         self.next_while(|&c| c != '\n');
                         TokenType::Whitespace
                     } else {
-                        TokenType::Slash
+                        TokenType::Divide
                     }
                 }
                 '\n' => {
@@ -158,7 +158,7 @@ impl<'a> Scanner<'a> {
                         self.next(); // read the decimal point
                         self.next_while(|&c| c.is_ascii_digit());
                     }
-                    TokenType::NumberLiteral
+                    TokenType::NumLiteral
                 }
                 c if UnicodeXID::is_xid_start(c) => {
                     self.next_while(|&c| UnicodeXID::is_xid_continue(c));
@@ -232,7 +232,7 @@ impl<'a> Scanner<'a> {
         while let Some(c) = self.iter.next() {
             self.current += c.len_utf8();
             if c == '"' {
-                return Ok(TokenType::StringLiteral)
+                return Ok(TokenType::StrLiteral)
             } else if c == '\n' {
                 self.line += 1;
             }
@@ -296,11 +296,11 @@ mod tests {
             Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 3 },
             Token { kind: TokenType::Plus, lexeme: "+".to_string(), line: 3 },
             Token { kind: TokenType::Identifier, lexeme: "b".to_string(), line: 3 },
-            Token { kind: TokenType::Star, lexeme: "*".to_string(), line: 3 },
+            Token { kind: TokenType::Times, lexeme: "*".to_string(), line: 3 },
             Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 3 },
             Token { kind: TokenType::Minus, lexeme: "-".to_string(), line: 3 },
             Token { kind: TokenType::Identifier, lexeme: "b".to_string(), line: 3 },
-            Token { kind: TokenType::Slash, lexeme: "/".to_string(), line: 3 },
+            Token { kind: TokenType::Divide, lexeme: "/".to_string(), line: 3 },
             Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 3 },
             Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 3 },
             Token { kind: TokenType::Print, lexeme: "print".to_string(), line: 4 },
