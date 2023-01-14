@@ -57,7 +57,7 @@ pub enum TokenType {
 pub struct Token {
     pub kind: TokenType,
     pub lexeme: String,
-    line: i32,
+    pub line: i32,
 }
 
 pub struct Scanner<'a> {
@@ -81,7 +81,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Result<&Vec<Token>, &'static str> {
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, &'static str> {
         loop {
             let token = self.scan_token()?;
             let eof = token.kind == TokenType::Eof;
@@ -92,7 +92,7 @@ impl<'a> Scanner<'a> {
                 }
             }
         }
-        Ok(&self.tokens)
+        Ok(self.tokens)
     }
 
     // Returns None for whitespace (no token)
@@ -165,23 +165,23 @@ impl<'a> Scanner<'a> {
                     // TODO: test indexing
                     let ident = &self.source[self.start..self.current];
                     match ident {
-                        "and"    => TokenType::And,
-                        "class"  => TokenType::Class,
-                        "else"   => TokenType::Else,
-                        "false"  => TokenType::False,
-                        "for"    => TokenType::For,
-                        "fun"    => TokenType::Fun,
-                        "if"     => TokenType::If,
-                        "nil"    => TokenType::Nil,
-                        "or"     => TokenType::Or,
-                        "print"  => TokenType::Print,
+                        "and" => TokenType::And,
+                        "class" => TokenType::Class,
+                        "else" => TokenType::Else,
+                        "false" => TokenType::False,
+                        "for" => TokenType::For,
+                        "fun" => TokenType::Fun,
+                        "if" => TokenType::If,
+                        "nil" => TokenType::Nil,
+                        "or" => TokenType::Or,
+                        "print" => TokenType::Print,
                         "return" => TokenType::Return,
-                        "super"  => TokenType::Super,
-                        "this"   => TokenType::This,
-                        "true"   => TokenType::True,
-                        "var"    => TokenType::Var,
-                        "while"  => TokenType::While,
-                        _        => TokenType::Identifier,
+                        "super" => TokenType::Super,
+                        "this" => TokenType::This,
+                        "true" => TokenType::True,
+                        "var" => TokenType::Var,
+                        "while" => TokenType::While,
+                        _ => TokenType::Identifier,
                     }
                 }
                 _ => {
@@ -232,7 +232,7 @@ impl<'a> Scanner<'a> {
         while let Some(c) = self.iter.next() {
             self.current += c.len_utf8();
             if c == '"' {
-                return Ok(TokenType::StrLiteral)
+                return Ok(TokenType::StrLiteral);
             } else if c == '\n' {
                 self.line += 1;
             }
@@ -251,63 +251,229 @@ mod tests {
     fn test1() {
         let source = fs::read_to_string("test1.lox").expect("Failed to read file");
         let mut s = Scanner::new(&source);
-        assert_eq!(s.scan_tokens(), Ok(&vec![
-            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 1 },
-            Token { kind: TokenType::Identifier, lexeme: "i".to_string(), line: 1 },
-            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 1 },
-            Token { kind: TokenType::NumberLiteral, lexeme: "1".to_string(), line: 1 },
-            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 1 },
-            Token { kind: TokenType::Eof, lexeme: "".to_string(), line: 2 },
-        ]));
+        assert_eq!(
+            s.scan_tokens(),
+            Ok(vec![
+                Token {
+                    kind: TokenType::Var,
+                    lexeme: "var".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "i".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Equal,
+                    lexeme: "=".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::NumLiteral,
+                    lexeme: "1".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Semicolon,
+                    lexeme: ";".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Eof,
+                    lexeme: "".to_owned(),
+                    line: 2
+                },
+            ])
+        );
     }
 
     #[test]
     fn test2() {
         let source = fs::read_to_string("test2.lox").expect("Failed to read file");
         let mut s = Scanner::new(&source);
-        assert_eq!(s.scan_tokens(), Ok(&vec![
-            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 1 },
-            Token { kind: TokenType::Identifier, lexeme: "s".to_string(), line: 1 },
-            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 1 },
-            Token { kind: TokenType::StringLiteral, lexeme: "\"Hello, World!\"".to_string(), line: 1 },
-            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 1 },
-            Token { kind: TokenType::Eof, lexeme: "".to_string(), line: 2 },
-        ]));
+        assert_eq!(
+            s.scan_tokens(),
+            Ok(vec![
+                Token {
+                    kind: TokenType::Var,
+                    lexeme: "var".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "s".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Equal,
+                    lexeme: "=".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::StrLiteral,
+                    lexeme: "\"Hello, World!\"".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Semicolon,
+                    lexeme: ";".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Eof,
+                    lexeme: "".to_owned(),
+                    line: 2
+                },
+            ])
+        );
     }
 
     #[test]
     fn test3() {
         let source = fs::read_to_string("test3.lox").expect("Failed to read file");
         let mut s = Scanner::new(&source);
-        assert_eq!(s.scan_tokens(), Ok(&vec![
-            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 1 },
-            Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 1 },
-            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 1 },
-            Token { kind: TokenType::NumberLiteral, lexeme: "1".to_string(), line: 1 },
-            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 1 },
-            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 2 },
-            Token { kind: TokenType::Identifier, lexeme: "b".to_string(), line: 2 },
-            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 2 },
-            Token { kind: TokenType::NumberLiteral, lexeme: "2".to_string(), line: 2 },
-            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 2 },
-            Token { kind: TokenType::Var, lexeme: "var".to_string(), line: 3 },
-            Token { kind: TokenType::Identifier, lexeme: "c".to_string(), line: 3 },
-            Token { kind: TokenType::Equal, lexeme: "=".to_string(), line: 3 },
-            Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 3 },
-            Token { kind: TokenType::Plus, lexeme: "+".to_string(), line: 3 },
-            Token { kind: TokenType::Identifier, lexeme: "b".to_string(), line: 3 },
-            Token { kind: TokenType::Times, lexeme: "*".to_string(), line: 3 },
-            Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 3 },
-            Token { kind: TokenType::Minus, lexeme: "-".to_string(), line: 3 },
-            Token { kind: TokenType::Identifier, lexeme: "b".to_string(), line: 3 },
-            Token { kind: TokenType::Divide, lexeme: "/".to_string(), line: 3 },
-            Token { kind: TokenType::Identifier, lexeme: "a".to_string(), line: 3 },
-            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 3 },
-            Token { kind: TokenType::Print, lexeme: "print".to_string(), line: 4 },
-            Token { kind: TokenType::Identifier, lexeme: "c".to_string(), line: 4 },
-            Token { kind: TokenType::Semicolon, lexeme: ";".to_string(), line: 4 },
-            Token { kind: TokenType::Eof, lexeme: "".to_string(), line: 5 },
-        ]));
+        assert_eq!(
+            s.scan_tokens(),
+            Ok(vec![
+                Token {
+                    kind: TokenType::Var,
+                    lexeme: "var".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "a".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Equal,
+                    lexeme: "=".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::NumLiteral,
+                    lexeme: "1".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Semicolon,
+                    lexeme: ";".to_owned(),
+                    line: 1
+                },
+                Token {
+                    kind: TokenType::Var,
+                    lexeme: "var".to_owned(),
+                    line: 2
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "b".to_owned(),
+                    line: 2
+                },
+                Token {
+                    kind: TokenType::Equal,
+                    lexeme: "=".to_owned(),
+                    line: 2
+                },
+                Token {
+                    kind: TokenType::NumLiteral,
+                    lexeme: "2".to_owned(),
+                    line: 2
+                },
+                Token {
+                    kind: TokenType::Semicolon,
+                    lexeme: ";".to_owned(),
+                    line: 2
+                },
+                Token {
+                    kind: TokenType::Var,
+                    lexeme: "var".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "c".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Equal,
+                    lexeme: "=".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "a".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Plus,
+                    lexeme: "+".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "b".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Times,
+                    lexeme: "*".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "a".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Minus,
+                    lexeme: "-".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "b".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Divide,
+                    lexeme: "/".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "a".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Semicolon,
+                    lexeme: ";".to_owned(),
+                    line: 3
+                },
+                Token {
+                    kind: TokenType::Print,
+                    lexeme: "print".to_owned(),
+                    line: 4
+                },
+                Token {
+                    kind: TokenType::Identifier,
+                    lexeme: "c".to_owned(),
+                    line: 4
+                },
+                Token {
+                    kind: TokenType::Semicolon,
+                    lexeme: ";".to_owned(),
+                    line: 4
+                },
+                Token {
+                    kind: TokenType::Eof,
+                    lexeme: "".to_owned(),
+                    line: 5
+                },
+            ])
+        );
     }
-
 }
+
+

@@ -1,34 +1,25 @@
 use crate::scanner::{Token, TokenType};
 
+#[derive(PartialEq, Debug)]
 enum Expression {
     Literal(Literal),
-    Unary { op: TokenType, e: Box::<Expression> },
-    Binary { e1: Box::<Expression>, op: TokenType, e2: Box::<Expression> },
+    Unary {
+        op: TokenType,
+        e: Box<Expression>,
+    },
+    Binary {
+        e1: Box<Expression>,
+        op: TokenType,
+        e2: Box<Expression>,
+    },
 }
 
+#[derive(PartialEq, Debug)]
 enum Literal {
     Num(f64),
     Str(String),
     Bool(bool),
     Nil,
-}
-
-enum UnaryOp {
-    Minus,
-    Not,
-}
-
-enum BinaryOp {
-    EqualEqual,
-    NotEqual,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
-    Plus,
-    Minus,
-    Mult,
-    Divide,
 }
 
 pub struct Parser {
@@ -37,14 +28,11 @@ pub struct Parser {
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>) -> Self {
-        Parser {
-            tokens,
-            cur_idx: 0,
-        }
+    pub fn new(tokens: Vec<Token>) -> Self {
+        Parser { tokens, cur_idx: 0 }
     }
 
-    fn parse(&mut self) -> Expression {
+    pub fn parse(&mut self) -> Expression {
         self.expression()
     }
 
@@ -74,7 +62,7 @@ impl Parser {
         let mut expr = self.comparison();
         while let Some(op) = self.advance_if_eq(&options) {
             let right = self.comparison();
-            expr = Expression::Binary{
+            expr = Expression::Binary {
                 e1: Box::new(expr),
                 op,
                 e2: Box::new(right),
@@ -94,7 +82,7 @@ impl Parser {
         let mut expr = self.term();
         while let Some(op) = self.advance_if_eq(&options) {
             let right = self.term();
-            expr = Expression::Binary{
+            expr = Expression::Binary {
                 e1: Box::new(expr),
                 op,
                 e2: Box::new(right),
@@ -109,7 +97,7 @@ impl Parser {
         let mut expr = self.factor();
         while let Some(op) = self.advance_if_eq(&options) {
             let right = self.factor();
-            expr = Expression::Binary{
+            expr = Expression::Binary {
                 e1: Box::new(expr),
                 op,
                 e2: Box::new(right),
@@ -124,7 +112,7 @@ impl Parser {
         let mut expr = self.unary();
         while let Some(op) = self.advance_if_eq(&options) {
             let right = self.unary();
-            expr = Expression::Binary{
+            expr = Expression::Binary {
                 e1: Box::new(expr),
                 op,
                 e2: Box::new(right),
@@ -138,7 +126,7 @@ impl Parser {
 
         if let Some(op) = self.advance_if_eq(&options) {
             let right = self.unary();
-            Expression::Unary{
+            Expression::Unary {
                 op,
                 e: Box::new(right),
             }
@@ -153,11 +141,11 @@ impl Parser {
                 TokenType::NumLiteral => {
                     let num = cur.lexeme.parse().expect("Failed to parse number");
                     Expression::Literal(Literal::Num(num))
-                },
+                }
                 TokenType::StrLiteral => {
                     let s = cur.lexeme.clone();
                     Expression::Literal(Literal::Str(s))
-                },
+                }
                 TokenType::True => Expression::Literal(Literal::Bool(true)),
                 TokenType::False => Expression::Literal(Literal::Bool(false)),
                 TokenType::Nil => Expression::Literal(Literal::Nil),
@@ -168,12 +156,48 @@ impl Parser {
                         panic!("Error: no matching right parenthesis");
                     }
                     return inner;
-                },
-                _ => panic!("Expected literal, found wrong TokenType")
-            }
-            None => panic!("Expected literal, found EOF")
+                }
+                _ => panic!("Expected literal, found wrong TokenType"),
+            },
+            None => panic!("Expected literal, found EOF"),
         };
         self.advance();
         expr
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test1() {
+        let tokens = vec![
+            Token {
+                kind: TokenType::NumLiteral,
+                lexeme: "6".to_owned(),
+                line: 1,
+            },
+            Token {
+                kind: TokenType::Divide,
+                lexeme: "/".to_owned(),
+                line: 1,
+            },
+            Token {
+                kind: TokenType::NumLiteral,
+                lexeme: "3".to_owned(),
+                line: 1,
+            },
+        ];
+        let mut parser = Parser::new(tokens);
+        let expr = parser.parse();
+        assert_eq!(
+            expr,
+            Expression::Binary {
+                e1: Box::new(Expression::Literal(Literal::Num(6f64))),
+                op: TokenType::Divide,
+                e2: Box::new(Expression::Literal(Literal::Num(3f64))),
+            }
+        );
     }
 }
